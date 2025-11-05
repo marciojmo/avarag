@@ -49,7 +49,7 @@ function clearChatHistory(agentId: string): void {
 }
 
 // ========== COMPONENT ==========
-export default function Chat({ agentId }: { agentId?: string }) {
+export default function Chat({ agentId, isPublic = false }: { agentId?: string; isPublic?: boolean }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -84,7 +84,10 @@ export default function Chat({ agentId }: { agentId?: string }) {
         setIsLoading(true);
 
         try {
-            const response = await fetch("/api/chat", {
+            // Use public endpoint if in public mode
+            const endpoint = isPublic ? "/api/public/chat" : "/api/chat";
+
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: text, agentId }),
