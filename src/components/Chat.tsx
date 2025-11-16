@@ -1,4 +1,4 @@
-// components/Chat.tsx
+// components/Chat.tsx - State Machine Based Chat
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Message from "./Message";
@@ -8,9 +8,14 @@ type ChatMessage = { role: "user" | "bot"; text: string };
 
 // ========== LOCAL STORAGE HELPERS ==========
 const STORAGE_KEY_PREFIX = "chat_history_";
+const STATE_KEY_PREFIX = "chat_state_";
 
 function getStorageKey(agentId: string): string {
     return `${STORAGE_KEY_PREFIX}${agentId}`;
+}
+
+function getStateKey(agentId: string): string {
+    return `${STATE_KEY_PREFIX}${agentId}`;
 }
 
 function loadChatHistory(agentId: string): ChatMessage[] {
@@ -38,11 +43,37 @@ function saveChatHistory(agentId: string, messages: ChatMessage[]): void {
     }
 }
 
+function loadCurrentState(agentId: string): number {
+    if (typeof window === "undefined") return 0;
+
+    try {
+        const stored = localStorage.getItem(getStateKey(agentId));
+        if (!stored) return 0;
+
+        const stateIndex = parseInt(stored);
+        return isNaN(stateIndex) ? 0 : stateIndex;
+    } catch (error) {
+        console.error("Failed to load current state:", error);
+        return 0;
+    }
+}
+
+function saveCurrentState(agentId: string, stateIndex: number): void {
+    if (typeof window === "undefined") return;
+
+    try {
+        localStorage.setItem(getStateKey(agentId), stateIndex.toString());
+    } catch (error) {
+        console.error("Failed to save current state:", error);
+    }
+}
+
 function clearChatHistory(agentId: string): void {
     if (typeof window === "undefined") return;
 
     try {
         localStorage.removeItem(getStorageKey(agentId));
+        localStorage.removeItem(getStateKey(agentId));
     } catch (error) {
         console.error("Failed to clear chat history:", error);
     }
@@ -52,14 +83,22 @@ function clearChatHistory(agentId: string): void {
 export default function Chat({ agentId, isPublic = false }: { agentId?: string; isPublic?: boolean }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [currentStateIndex, setCurrentStateIndex] = useState(0);
+    const [currentStateName, setCurrentStateName] = useState("Initial");
+    const [isConversationEnded, setIsConversationEnded] = useState(false);
 
-    // Load chat history when agentId changes
+    // Load chat history and state when agentId changes
     useEffect(() => {
         if (agentId) {
             const history = loadChatHistory(agentId);
+            const stateIndex = loadCurrentState(agentId);
             setMessages(history);
+            setCurrentStateIndex(stateIndex);
+            setIsConversationEnded(false);
         } else {
             setMessages([]);
+            setCurrentStateIndex(0);
+            setIsConversationEnded(false);
         }
     }, [agentId]);
 
@@ -70,6 +109,13 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
         }
     }, [agentId, messages]);
 
+    // Save current state whenever it changes
+    useEffect(() => {
+        if (agentId) {
+            saveCurrentState(agentId, currentStateIndex);
+        }
+    }, [agentId, currentStateIndex]);
+
     async function handleSend(text: string) {
         if (!agentId) {
             setMessages((prev) => [...prev, {
@@ -79,18 +125,38 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
             return;
         }
 
+        if (isConversationEnded) {
+            setMessages((prev) => [...prev, {
+                role: "bot",
+                text: "This conversation has ended. Please clear the history to start a new conversation."
+            }]);
+            return;
+        }
+
         // Add user message immediately
-        setMessages((prev) => [...prev, { role: "user", text }]);
+        const userMessage = { role: "user" as const, text };
+        setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
         try {
+            // Build conversation history for API
+            const conversationHistory = messages.map(msg => ({
+                role: msg.role === "user" ? "user" : "assistant",
+                content: msg.text
+            }));
+
             // Use public endpoint if in public mode
             const endpoint = isPublic ? "/api/public/chat" : "/api/chat";
 
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text, agentId }),
+                body: JSON.stringify({
+                    message: text,
+                    agentId,
+                    currentStateIndex,
+                    conversationHistory
+                }),
             });
 
             if (!response.ok) {
@@ -105,6 +171,18 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
                 role: "bot",
                 text: data.response
             }]);
+
+            // Update state
+            if (data.nextStateIndex !== undefined) {
+                setCurrentStateIndex(data.nextStateIndex);
+            }
+            if (data.stateName) {
+                setCurrentStateName(data.stateName);
+            }
+            if (data.isFinal) {
+                setIsConversationEnded(true);
+            }
+
         } catch (error: any) {
             console.error("Chat error:", error);
             setMessages((prev) => [...prev, {
@@ -119,9 +197,12 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
     function handleClearHistory() {
         if (!agentId) return;
 
-        if (confirm("Are you sure you want to clear the chat history?")) {
+        if (confirm("Are you sure you want to clear the chat history? This will reset the conversation.")) {
             clearChatHistory(agentId);
             setMessages([]);
+            setCurrentStateIndex(0);
+            setCurrentStateName("Initial");
+            setIsConversationEnded(false);
         }
     }
 
@@ -138,9 +219,18 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
 
     return (
         <div className="flex flex-col h-full w-full">
-            {/* Header with clear button */}
+            {/* Header with state info and clear button */}
             {messages.length > 0 && (
-                <div className="flex justify-end px-4 py-2 border-b border-white/10">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/50">Current State:</span>
+                        <span className="text-xs font-medium text-blue-400">{currentStateName}</span>
+                        {isConversationEnded && (
+                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full">
+                                Completed
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={handleClearHistory}
                         disabled={isLoading}
@@ -174,12 +264,18 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
                             Thinking...
                         </div>
                     )}
+                    {isConversationEnded && (
+                        <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                            <p className="text-sm text-green-400">Conversation completed</p>
+                            <p className="text-xs text-white/50 mt-1">Clear history to start a new conversation</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
             <div className="relative isolate z-10 w-full basis-auto content-fade single-line">
                 <div className="max-w-xl mx-auto flex flex-col">
-                    <ChatInput onSend={handleSend} disabled={isLoading} />
+                    <ChatInput onSend={handleSend} disabled={isLoading || isConversationEnded} />
                 </div>
             </div>
         </div>

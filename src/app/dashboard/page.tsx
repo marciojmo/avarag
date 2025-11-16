@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Chat from "@/components/Chat";
 import Uploader from "@/components/Uploader";
+import ScriptEditor from "@/components/ScriptEditor";
 
 type Agent = {
     id: string;
@@ -14,7 +15,7 @@ type Agent = {
 };
 
 export default function DashboardPage() {
-    const [tab, setTab] = useState<"files" | "chat">("files");
+    const [tab, setTab] = useState<"files" | "chat" | "script">("files");
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [loadingAgents, setLoadingAgents] = useState(true);
@@ -125,8 +126,8 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Tabs - visible only on mobile/tablet */}
-            <div className="border-b border-white/10 mb-4 lg:hidden">
+            {/* Tabs - visible on all screen sizes */}
+            <div className="border-b border-white/10 mb-4">
                 <div className="flex gap-2">
                     <button
                         className={`px-3 py-2 rounded-t ${tab === "files" ? "bg-white/10" : "hover:bg-white/10"}`}
@@ -140,6 +141,12 @@ export default function DashboardPage() {
                     >
                         Chat
                     </button>
+                    <button
+                        className={`px-3 py-2 rounded-t ${tab === "script" ? "bg-white/10" : "hover:bg-white/10"}`}
+                        onClick={() => setTab("script")}
+                    >
+                        Script
+                    </button>
                 </div>
             </div>
 
@@ -152,39 +159,22 @@ export default function DashboardPage() {
                 </section>
             ) : (
                 <>
-                    {/* Mobile/Tablet: Tab-based layout */}
-                    <div className="lg:hidden">
-                        {tab === "files" ? (
-                            <section>
-                                <div className="mb-4">
-                                    <Uploader agentId={selectedAgentId || undefined} />
-                                </div>
-                            </section>
-                        ) : (
-                            <section className="h-[calc(100vh-57px-56px)]">
-                                <Chat agentId={selectedAgentId || undefined} />
-                            </section>
-                        )}
-                    </div>
-
-                    {/* Desktop: Two-column layout */}
-                    <div className="hidden lg:flex lg:gap-4 h-[calc(100vh-57px-32px)]">
-                        {/* Files Section - 1/3 width */}
-                        <section className="w-1/3 overflow-y-auto pr-2">
+                    {/* Full-width tab content for all screen sizes */}
+                    {tab === "files" ? (
+                        <section>
                             <div className="mb-4">
-                                <h2 className="text-lg font-semibold text-white mb-3">Files</h2>
                                 <Uploader agentId={selectedAgentId || undefined} />
                             </div>
                         </section>
-
-                        {/* Chat Section - 2/3 width */}
-                        <section className="w-2/3 border-l border-white/10 pl-4">
-                            <h2 className="text-lg font-semibold text-white mb-3">Chat</h2>
-                            <div className="h-[calc(100%-40px)]">
-                                <Chat agentId={selectedAgentId || undefined} />
-                            </div>
+                    ) : tab === "chat" ? (
+                        <section className="h-[calc(100vh-57px-180px)]">
+                            <Chat agentId={selectedAgentId || undefined} />
                         </section>
-                    </div>
+                    ) : (
+                        <section className="h-[calc(100vh-57px-180px)]">
+                            <ScriptEditor agentId={selectedAgentId || undefined} />
+                        </section>
+                    )}
                 </>
             )}
         </main>

@@ -18,6 +18,7 @@ create table if not exists public.agents (
   name text not null,
   description text,
   model text default 'gpt-4o-mini',
+  script jsonb,
   created_at timestamptz not null default now(),
   modified_at timestamptz not null default now()
 );
