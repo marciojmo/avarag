@@ -1,7 +1,7 @@
 // app/api/uploads/confirm/route.ts
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendDocumentProcessingMessage } from "@/lib/sqs";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
@@ -10,7 +10,7 @@ import { s3 } from "@/lib/S3";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-    const session = await getServerSession(authOptions as any);
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
         return new Response("Unauthorized", { status: 401 });
     }

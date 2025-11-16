@@ -4,14 +4,14 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "@/lib/S3";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions as any);
+        const session = await getServerSession(authOptions);
         if (!session?.user?.id || !session?.user?.email) {
             return new Response("Unauthorized", { status: 401 });
         }

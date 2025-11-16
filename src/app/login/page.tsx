@@ -2,10 +2,10 @@
 "use client";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginContent() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -21,6 +21,7 @@ export default function LoginPage() {
             router.replace("/signup?error=user_not_found");
         }
     }, [status, router, searchParams]);
+
     return (
         <main className="h-screen flex items-center justify-center px-6">
             <div className="w-full max-w-md text-center">
@@ -61,6 +62,20 @@ export default function LoginPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <main className="h-screen flex items-center justify-center px-6">
+                <div className="w-full max-w-md text-center">
+                    <h1 className="text-2xl font-semibold mb-8">Entrar</h1>
+                </div>
+            </main>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }
 

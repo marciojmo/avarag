@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function SignupPage() {
+function SignupContent() {
     const { status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -22,6 +22,7 @@ export default function SignupPage() {
             setError("Usuário não encontrado. Crie sua conta para começar a usar a AVA.");
         }
     }, [status, router, searchParams]);
+
     return (
         <main className="h-screen flex items-center justify-center px-6">
             <div className="w-full max-w-md text-center">
@@ -69,6 +70,20 @@ export default function SignupPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+export default function SignupPage() {
+    return (
+        <Suspense fallback={
+            <main className="h-screen flex items-center justify-center px-6">
+                <div className="w-full max-w-md text-center">
+                    <h1 className="text-2xl font-semibold mb-8">Criar conta</h1>
+                </div>
+            </main>
+        }>
+            <SignupContent />
+        </Suspense>
     );
 }
 

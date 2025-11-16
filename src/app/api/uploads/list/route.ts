@@ -1,13 +1,13 @@
 // app/api/uploads/list/route.ts
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-    const session = await getServerSession(authOptions as any);
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id || !session?.user?.email) {
         return new Response("Unauthorized", { status: 401 });
     }
