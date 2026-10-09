@@ -86,6 +86,9 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
     const [currentStateIndex, setCurrentStateIndex] = useState(0);
     const [currentStateName, setCurrentStateName] = useState("Initial");
     const [isConversationEnded, setIsConversationEnded] = useState(false);
+    const [reengageAttempts, setReengageAttempts] = useState(0); // Track re-engagement attempts
+    const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const MAX_REENGAGE_ATTEMPTS = 3;
 
     // Load chat history and state when agentId changes
     useEffect(() => {
@@ -95,10 +98,12 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
             setMessages(history);
             setCurrentStateIndex(stateIndex);
             setIsConversationEnded(false);
+            setReengageAttempts(0); // Reset re-engage attempts for new agent
         } else {
             setMessages([]);
             setCurrentStateIndex(0);
             setIsConversationEnded(false);
+            setReengageAttempts(0);
         }
     }, [agentId]);
 
@@ -115,6 +120,114 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
             saveCurrentState(agentId, currentStateIndex);
         }
     }, [agentId, currentStateIndex]);
+
+    // Auto-retry mechanism: Send a contextual follow-up message if user doesn't respond
+    useEffect(() => {
+        // Clear any existing timeout
+        if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+        }
+
+        // Don't set retry if:
+        // - No agent selected
+        // - Conversation has ended
+        // - Currently loading
+        // - No messages yet
+        // - Maximum re-engage attempts reached
+        const lastMessage = messages[messages.length - 1];
+        if (!agentId || isConversationEnded || isLoading || messages.length === 0 || reengageAttempts >= MAX_REENGAGE_ATTEMPTS) {
+            if (reengageAttempts >= MAX_REENGAGE_ATTEMPTS) {
+                console.log(`🛑 Maximum re-engagement attempts (${MAX_REENGAGE_ATTEMPTS}) reached. Waiting for user input.`);
+            }
+            return;
+        }
+
+        // Only set retry after bot messages (waiting for user response)
+        if (lastMessage?.role !== 'bot') {
+            return;
+        }
+
+        // Calculate dynamic retry delay with exponential backoff
+        const calculateRetryDelay = (messageText: string, attemptNumber: number): number => {
+            const sentenceCount = (messageText.match(/[.!?]+/g) || []).length;
+
+            // Base delay: 15 seconds
+            // Add 2 seconds per sentence (up to max 30 seconds)
+            const baseDelay = 15000;
+            const sentenceDelay = Math.min(sentenceCount * 2000, 30000);
+            const messageDelay = baseDelay + sentenceDelay;
+
+            // Exponential backoff: multiply by 2^attemptNumber
+            // Attempt 0: 1x, Attempt 1: 2x, Attempt 2: 4x
+            const backoffMultiplier = Math.pow(2, attemptNumber);
+
+            return messageDelay * backoffMultiplier;
+        };
+
+        const retryDelay = calculateRetryDelay(lastMessage.text, reengageAttempts);
+        console.log(`⏱️ Setting retry delay: ${retryDelay / 1000}s (attempt ${reengageAttempts + 1}/${MAX_REENGAGE_ATTEMPTS}, backoff: ${Math.pow(2, reengageAttempts)}x)`);
+
+        retryTimeoutRef.current = setTimeout(async () => {
+            console.log("🔄 Auto-retry: Generating contextual re-engagement message...");
+
+            try {
+                // Build conversation history
+                const conversationHistory = messages.map(msg => ({
+                    role: msg.role === "user" ? "user" : "assistant",
+                    content: msg.text
+                }));
+
+                // Use public or private endpoint based on mode
+                const endpoint = isPublic ? "/api/public/chat/reengage" : "/api/chat/reengage";
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        agentId,
+                        currentStateIndex,
+                        conversationHistory
+                    }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Add contextual re-engagement message
+                    setMessages((prev) => [...prev, {
+                        role: "bot",
+                        text: data.message
+                    }]);
+
+                    // Increment re-engage attempts
+                    setReengageAttempts((prev) => prev + 1);
+
+                    console.log(`✅ Contextual re-engagement sent (attempt ${reengageAttempts + 1}/${MAX_REENGAGE_ATTEMPTS})`);
+                } else {
+                    // Fallback to simple re-engagement
+                    console.warn("⚠️ Re-engagement API failed, using fallback");
+                    setMessages((prev) => [...prev, {
+                        role: "bot",
+                        text: "Alguma dúvida sobre o que falamos?"
+                    }]);
+
+                    // Still increment attempts even on fallback
+                    setReengageAttempts((prev) => prev + 1);
+                }
+            } catch (error) {
+                console.error("❌ Error generating re-engagement:", error);
+                // Don't increment on error - will retry on next cycle
+            }
+
+        }, retryDelay);
+
+        // Cleanup on unmount or when dependencies change
+        return () => {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+        };
+    }, [agentId, messages, isConversationEnded, isLoading, currentStateIndex, isPublic, reengageAttempts, MAX_REENGAGE_ATTEMPTS]);
 
     async function handleSend(text: string) {
         if (!agentId) {
@@ -136,6 +249,10 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
         // Add user message immediately
         const userMessage = { role: "user" as const, text };
         setMessages((prev) => [...prev, userMessage]);
+
+        // Reset re-engage attempts when user sends a message
+        setReengageAttempts(0);
+
         setIsLoading(true);
 
         try {
@@ -203,6 +320,7 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
             setCurrentStateIndex(0);
             setCurrentStateName("Initial");
             setIsConversationEnded(false);
+            setReengageAttempts(0); // Reset re-engage attempts
         }
     }
 
@@ -262,6 +380,14 @@ export default function Chat({ agentId, isPublic = false }: { agentId?: string; 
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             Thinking...
+                        </div>
+                    )}
+                    {!isLoading && reengageAttempts >= MAX_REENGAGE_ATTEMPTS && messages[messages.length - 1]?.role === 'bot' && (
+                        <div className="flex items-center justify-center gap-2 p-3 mx-4 my-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg text-yellow-300 text-xs">
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Aguardando sua resposta...</span>
                         </div>
                     )}
                     {isConversationEnded && (

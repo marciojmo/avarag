@@ -15,7 +15,7 @@ type Agent = {
 };
 
 export default function DashboardPage() {
-    const [tab, setTab] = useState<"files" | "chat" | "script">("files");
+    const [tab, setTab] = useState<"files" | "chat" | "script">("script");
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [loadingAgents, setLoadingAgents] = useState(true);
@@ -130,6 +130,12 @@ export default function DashboardPage() {
             <div className="border-b border-white/10 mb-4">
                 <div className="flex gap-2">
                     <button
+                        className={`px-3 py-2 rounded-t ${tab === "script" ? "bg-white/10" : "hover:bg-white/10"}`}
+                        onClick={() => setTab("script")}
+                    >
+                        Script
+                    </button>
+                    <button
                         className={`px-3 py-2 rounded-t ${tab === "files" ? "bg-white/10" : "hover:bg-white/10"}`}
                         onClick={() => setTab("files")}
                     >
@@ -140,12 +146,6 @@ export default function DashboardPage() {
                         onClick={() => setTab("chat")}
                     >
                         Chat
-                    </button>
-                    <button
-                        className={`px-3 py-2 rounded-t ${tab === "script" ? "bg-white/10" : "hover:bg-white/10"}`}
-                        onClick={() => setTab("script")}
-                    >
-                        Script
                     </button>
                 </div>
             </div>
@@ -160,19 +160,19 @@ export default function DashboardPage() {
             ) : (
                 <>
                     {/* Full-width tab content for all screen sizes */}
-                    {tab === "files" ? (
+                    {tab === "script" ? (
+                        <section className="h-[calc(100vh-57px-180px)]">
+                            <ScriptEditor agentId={selectedAgentId || undefined} />
+                        </section>
+                    ) : tab === "files" ? (
                         <section>
                             <div className="mb-4">
                                 <Uploader agentId={selectedAgentId || undefined} />
                             </div>
                         </section>
-                    ) : tab === "chat" ? (
-                        <section className="h-[calc(100vh-57px-180px)]">
-                            <Chat agentId={selectedAgentId || undefined} />
-                        </section>
                     ) : (
                         <section className="h-[calc(100vh-57px-180px)]">
-                            <ScriptEditor agentId={selectedAgentId || undefined} />
+                            <Chat agentId={selectedAgentId || undefined} />
                         </section>
                     )}
                 </>

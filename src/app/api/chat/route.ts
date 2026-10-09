@@ -53,7 +53,7 @@ const EMBEDDING_MODEL = "text-embedding-ada-002";
 const DEFAULT_LLM_MODEL = "gpt-4o-mini";
 const TOP_K_CHUNKS = 3;
 const LLM_TEMPERATURE = 0.7;
-const LLM_MAX_TOKENS = 500;
+const LLM_MAX_TOKENS = 300; // Reduced for more concise responses
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -175,6 +175,37 @@ function buildContext(chunks: Chunk[]): string {
     return context;
 }
 
+function formatResponseWithParagraphs(text: string): string {
+    // Remove extra whitespace
+    text = text.trim();
+
+    // If text is already formatted with line breaks, return as is
+    if (text.includes('\n\n')) {
+        return text;
+    }
+
+    // Split into sentences
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+    // If 3 or fewer sentences, return as single paragraph
+    if (sentences.length <= 3) {
+        return text;
+    }
+
+    // Split into 2-3 paragraphs for better readability
+    const paragraphs: string[] = [];
+    const sentencesPerParagraph = Math.ceil(sentences.length / 2);
+
+    for (let i = 0; i < sentences.length; i += sentencesPerParagraph) {
+        const paragraph = sentences.slice(i, i + sentencesPerParagraph).join(' ').trim();
+        if (paragraph) {
+            paragraphs.push(paragraph);
+        }
+    }
+
+    return paragraphs.join('\n\n');
+}
+
 async function generateStateResponse(
     agent: Agent,
     state: State,
@@ -200,12 +231,14 @@ Goal: ${state.goal}
 
 Available message templates: ${state.chat_options.join(" OR ")}
 
-Instructions:
-- Your goal in this state is: ${state.goal}
-- Use the provided message templates as inspiration, but personalize based on the conversation
-- Be natural and conversational
-- Stay focused on the state's goal
-- Keep responses concise and engaging${contextFromDatabase ? '\n- Use the information from the knowledge base to provide accurate answers' : ''}`;
+CRITICAL INSTRUCTIONS:
+- Keep responses SHORT and CONCISE (2 sentences maximum)
+- Be direct and to the point
+- Use a natural, conversational tone like texting a friend
+- Avoid long explanations or over-explaining
+- Stay focused ONLY on: ${state.goal}
+- Don't list multiple options unless specifically asked${contextFromDatabase ? '\n- Use ONLY the most relevant information from the knowledge base' : ''}
+- Match the user\'s energy level and formality`;
 
     const messages: any[] = [
         { role: "system", content: systemPrompt }
@@ -236,8 +269,11 @@ Instructions:
         throw new Error("LLM_NO_RESPONSE");
     }
 
+    // Format response with paragraphs for better readability
+    const formattedResponse = formatResponseWithParagraphs(response);
+
     console.log("✅ Response generated successfully");
-    return response;
+    return formattedResponse;
 }
 
 async function determineStateTransition(
@@ -324,6 +360,63 @@ function createErrorResponse(error: string): NextResponse {
 
     const errorInfo = errorMap[error] || { message: "Internal server error", status: 500 };
     return NextResponse.json({ error: errorInfo.message }, { status: errorInfo.status });
+}
+
+async function generateReengagementMessage(
+    agent: Agent,
+    state: State,
+    conversationHistory: { role: string; content: string }[],
+    agentId: string
+): Promise<string> {
+    console.log(`🔄 Generating re-engagement message for state: ${state.name}`);
+
+    const systemPrompt = `You are ${agent.name}, an AI assistant trying to re-engage with a user who hasn't responded.
+
+Current State: ${state.name}
+Goal: ${state.goal}
+
+CRITICAL INSTRUCTIONS:
+- Generate a SINGLE short message (1 sentence) to re-engage the user
+- Be contextual and relevant to the conversation history
+- DO NOT use generic phrases like "Are you still there?" or "Hello?"
+- Instead, provide value by:
+  - Offering additional relevant information
+  - Asking a specific follow-up question related to ${state.goal}
+  - Sharing a helpful tip or insight
+  - Making a specific suggestion
+- Match the conversational tone from the history
+- Keep it natural, friendly, and on-topic`;
+
+    const messages: any[] = [
+        { role: "system", content: systemPrompt }
+    ];
+
+    // Add recent conversation history for context
+    const recentHistory = conversationHistory.slice(-4); // Last 4 messages
+    recentHistory.forEach(msg => {
+        messages.push({ role: msg.role, content: msg.content });
+    });
+
+    messages.push({
+        role: "user",
+        content: "Generate a contextual re-engagement message based on our conversation and the current state goal:"
+    });
+
+    const completion = await openai.chat.completions.create({
+        model: agent.model || DEFAULT_LLM_MODEL,
+        messages,
+        temperature: 0.8, // Slightly higher for more creative re-engagement
+        max_tokens: 100,
+    });
+
+    const response = completion.choices[0].message.content;
+    if (!response) {
+        // Fallback to state-specific message
+        return `Pensando melhor sobre ${state.goal.toLowerCase()}...`;
+    }
+
+    console.log("✅ Re-engagement message generated");
+    return response.trim();
 }
 
 // ========== ROUTE HANDLER ==========
