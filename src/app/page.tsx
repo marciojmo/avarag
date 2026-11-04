@@ -30,7 +30,7 @@ export default function Home() {
                     </h1>
 
                     <p className="text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
-                        AVA reads the files you upload and answers questions about them in a chat,
+                        AYDA reads the files you upload and answers questions about them in a chat,
                         using only what&apos;s in your documents.
                     </p>
 

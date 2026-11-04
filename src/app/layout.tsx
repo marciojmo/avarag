@@ -4,7 +4,7 @@ import AuthProvider from "@/components/AuthProvider";
 import NavBar from "@/components/NavBar";
 
 export const metadata: Metadata = {
-    title: "AVA",
+    title: "AYDA - Ask Your Documents Anything",
     description: "Upload your documents and ask questions about them.",
 };
 

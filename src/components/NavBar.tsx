@@ -8,7 +8,7 @@ export default function NavBar() {
     return (
         <nav className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 border-b border-white/10 bg-[#212121]">
             <Link href="/" className="text-lg font-bold text-white hover:opacity-80">
-                AVA
+                AYDA
             </Link>
 
             {status === "loading" ? null : session?.user ? (
