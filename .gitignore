@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lambda build output
+/.build/
+
+# sam
+samconfig.toml
+.aws-sam/

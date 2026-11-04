@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "worker": "tsx src/workers/document-processor.ts"
+    "worker": "tsx src/workers/document-processor.ts",
+    "build:lambda": "node scripts/build-lambda.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.901.0",
@@ -30,11 +31,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/aws-lambda": "^8.10.164",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.25.11",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "tailwindcss": "^4",
