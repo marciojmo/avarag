@@ -15,20 +15,20 @@ export default async function LoginPage({
     return (
         <main className="h-full flex items-center justify-center px-6">
             <div className="w-full max-w-sm text-center">
-                <h1 className="text-2xl font-semibold text-white mb-2">Entrar</h1>
+                <h1 className="text-2xl font-semibold text-white mb-2">Sign in</h1>
                 <p className="text-sm text-white/60 mb-8">
-                    Envie seus documentos e converse com eles.
+                    Upload your documents and chat with them.
                 </p>
                 {error && (
                     <p className="mb-4 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-md p-2">
-                        Não foi possível entrar. Tente novamente.
+                        Couldn&apos;t sign in. Please try again.
                     </p>
                 )}
                 <GoogleSignInButton />
                 <p className="mt-8 text-sm text-white/70">
-                    Não tem uma conta?{" "}
+                    Don&apos;t have an account?{" "}
                     <Link href="/signup" className="text-white underline underline-offset-4 hover:text-white/90">
-                        Inscreva-se
+                        Sign up
                     </Link>
                 </p>
             </div>

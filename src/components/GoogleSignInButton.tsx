@@ -1,7 +1,7 @@
 "use client";
 import { signIn } from "next-auth/react";
 
-export default function GoogleSignInButton({ label = "Entrar com o Google" }: { label?: string }) {
+export default function GoogleSignInButton({ label = "Sign in with Google" }: { label?: string }) {
     return (
         <button
             className="w-full h-12 rounded border border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa] active:bg-[#f1f3f4] transition-colors inline-flex items-center justify-center gap-3 cursor-pointer"

@@ -11,15 +11,15 @@ export default async function SignupPage() {
     return (
         <main className="h-full flex items-center justify-center px-6">
             <div className="w-full max-w-sm text-center">
-                <h1 className="text-2xl font-semibold text-white mb-2">Criar conta</h1>
+                <h1 className="text-2xl font-semibold text-white mb-2">Create account</h1>
                 <p className="text-sm text-white/60 mb-8">
-                    Envie seus documentos e converse com eles.
+                    Upload your documents and chat with them.
                 </p>
-                <GoogleSignInButton label="Inscrever-se com o Google" />
+                <GoogleSignInButton label="Sign up with Google" />
                 <p className="mt-8 text-sm text-white/70">
-                    Já tem uma conta?{" "}
+                    Already have an account?{" "}
                     <Link href="/login" className="text-white underline underline-offset-4 hover:text-white/90">
-                        Entrar
+                        Sign in
                     </Link>
                 </p>
             </div>

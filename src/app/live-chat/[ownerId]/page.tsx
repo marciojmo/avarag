@@ -16,10 +16,10 @@ export default async function PublicChatPage({ params }: { params: Promise<{ own
         <main className="h-full flex flex-col">
             <header className="px-4 pt-4 max-w-3xl w-full mx-auto">
                 <h1 className="text-lg font-semibold text-white">
-                    {ownerName ? `Documentos de ${ownerName}` : "Chat com documentos"}
+                    {ownerName ? `${ownerName}'s documents` : "Document chat"}
                 </h1>
                 <p className="text-sm text-white/60">
-                    Faça perguntas e as respostas virão dos arquivos compartilhados.
+                    Ask questions and get answers from the shared files.
                 </p>
             </header>
             <div className="flex-1 min-h-0">
@@ -27,8 +27,8 @@ export default async function PublicChatPage({ params }: { params: Promise<{ own
                     endpoint="/api/public/chat"
                     extraBody={{ ownerId }}
                     storageKey={`public_chat_history_${ownerId}`}
-                    emptyTitle="Pergunte sobre estes documentos"
-                    emptyDescription="As respostas são baseadas apenas nos arquivos compartilhados."
+                    emptyTitle="Ask about these documents"
+                    emptyDescription="Answers are based only on the shared files."
                 />
             </div>
         </main>

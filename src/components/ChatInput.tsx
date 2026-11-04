@@ -34,14 +34,14 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
                     }
                 }}
                 rows={1}
-                placeholder="Pergunte alguma coisa"
-                aria-label="Mensagem"
+                placeholder="Ask anything"
+                aria-label="Message"
                 className="flex-1 resize-none bg-transparent text-white outline-none ml-2 py-2 max-h-48 field-sizing-content"
             />
             <button
                 type="submit"
                 className="p-2.5 rounded-full bg-white text-black disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Enviar"
+                aria-label="Send"
                 disabled={disabled || !text.trim()}
             >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

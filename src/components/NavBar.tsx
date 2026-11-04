@@ -34,7 +34,7 @@ export default function NavBar() {
                         className="text-sm text-white/70 hover:text-white px-2 py-1 rounded hover:bg-white/10"
                         onClick={() => signOut({ callbackUrl: "/" })}
                     >
-                        Sair
+                        Sign out
                     </button>
                 </div>
             ) : (
@@ -43,13 +43,13 @@ export default function NavBar() {
                         href="/signup"
                         className="hidden sm:block text-sm font-medium text-white/80 hover:text-white px-3 py-1.5"
                     >
-                        Inscrever-se
+                        Sign up
                     </Link>
                     <Link
                         href="/login"
                         className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
                     >
-                        Entrar
+                        Sign in
                     </Link>
                 </div>
             )}

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     const ownerId = (body as { ownerId?: unknown } | null)?.ownerId;
     if (typeof ownerId !== "string" || !UUID_PATTERN.test(ownerId)) {
-        return Response.json({ error: "Link inválido" }, { status: 404 });
+        return Response.json({ error: "Invalid link" }, { status: 404 });
     }
 
     const input = parseChatInput(body);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     try {
         const owner = await query("SELECT 1 FROM users WHERE id = $1", [ownerId]);
         if (owner.rows.length === 0) {
-            return Response.json({ error: "Link inválido" }, { status: 404 });
+            return Response.json({ error: "Invalid link" }, { status: 404 });
         }
         return await streamAnswer(ownerId, input);
     } catch (error) {

@@ -27,9 +27,9 @@ export default function ShareLink() {
 
     return (
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-            <p className="text-xs font-medium text-white/80">Link público do chat</p>
+            <p className="text-xs font-medium text-white/80">Public chat link</p>
             <p className="text-[11px] text-white/50 mt-0.5 mb-2">
-                Quem tiver o link pode fazer perguntas sobre os seus arquivos.
+                Anyone with the link can ask questions about your files.
             </p>
             <div className="flex items-center gap-2">
                 <a
@@ -45,7 +45,7 @@ export default function ShareLink() {
                     onClick={copy}
                     className="shrink-0 text-xs font-medium rounded-md bg-white/10 hover:bg-white/15 text-white px-2.5 py-1"
                 >
-                    {copied ? "Copiado!" : "Copiar"}
+                    {copied ? "Copied!" : "Copy"}
                 </button>
             </div>
         </div>
