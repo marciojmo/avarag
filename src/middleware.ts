@@ -1,18 +1,12 @@
-// middleware.ts
 import { withAuth } from "next-auth/middleware";
 
-export default withAuth(
-    {
-        callbacks: {
-            authorized: ({ token }) => !!token,
-        },
-    }
-);
+export default withAuth({
+    callbacks: {
+        authorized: ({ token }) => !!token,
+    },
+});
 
 export const config = {
-    matcher: [
-        "/dashboard/:path*",
-        "/admin/:path*",
-        "/api/uploads/:path*"
-    ]
+    // API routes check the session themselves and answer 401 (no HTML redirect).
+    matcher: ["/dashboard/:path*", "/admin/:path*"],
 };

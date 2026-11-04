@@ -1,72 +1,31 @@
-// lib/db.ts
-import { Pool } from 'pg';
+import { Pool } from "pg";
 
-const pool = new Pool({
+// Reused across requests (and hot reloads in dev).
+const globalForPg = globalThis as unknown as { pgPool?: Pool };
+const pool = (globalForPg.pgPool ??= new Pool({
     connectionString: process.env.DATABASE_URL,
-});
+    max: Number(process.env.PG_POOL_MAX ?? 5),
+}));
 
-// Generic query function for direct SQL queries
-export async function query(text: string, params?: any[]) {
-    const client = await pool.connect();
-    try {
-        return await client.query(text, params);
-    } finally {
-        client.release();
-    }
+export function query(text: string, params?: unknown[]) {
+    return pool.query(text, params);
 }
 
-export async function createUser(email: string, name: string) {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+export type User = { id: string; email: string; name: string | null };
 
-        // Create user
-        const userResult = await client.query(
-            'INSERT INTO public.users (email, name) VALUES ($1, $2) RETURNING id',
-            [email, name]
-        );
-        const userId = userResult.rows[0].id;
-
-        // Create default agent for the user
-        const agentResult = await client.query(
-            'INSERT INTO public.agents (user_id, name, description) VALUES ($1, $2, $3) RETURNING id',
-            [userId, 'Default Agent', 'Your personal AI assistant']
-        );
-        const agentId = agentResult.rows[0].id;
-
-        await client.query('COMMIT');
-
-        return { userId, agentId };
-    } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
-    }
+export async function getUserByEmail(email: string): Promise<User | null> {
+    const result = await query(
+        "SELECT id, email, name FROM public.users WHERE email = $1",
+        [email]
+    );
+    return result.rows[0] ?? null;
 }
 
-export async function getUserByEmail(email: string) {
-    const client = await pool.connect();
-    try {
-        const result = await client.query(
-            'SELECT id, email, name FROM public.users WHERE email = $1',
-            [email]
-        );
-        return result.rows[0] || null;
-    } finally {
-        client.release();
-    }
-}
-
-export async function getUserAgents(userId: string) {
-    const client = await pool.connect();
-    try {
-        const result = await client.query(
-            'SELECT id, name, description, model FROM public.agents WHERE user_id = $1 ORDER BY created_at',
-            [userId]
-        );
-        return result.rows;
-    } finally {
-        client.release();
-    }
+/** Creates the user on first sign-in; no-op if it already exists. */
+export async function ensureUser(email: string, name: string): Promise<void> {
+    await query(
+        `INSERT INTO public.users (email, name) VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [email, name]
+    );
 }

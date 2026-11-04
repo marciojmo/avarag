@@ -8,9 +8,8 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { OpenAI, toFile } from "openai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Pool } from "pg";
+import { EMBEDDING_MODEL, toVectorLiteral } from "../lib/embeddings";
 
-// Must match the model used for query embeddings in src/app/api/chat/route.ts.
-const EMBEDDING_MODEL = "text-embedding-ada-002";
 const EMBEDDING_BATCH_SIZE = 100;
 
 export interface DocumentMessage {
@@ -158,7 +157,7 @@ export async function markFailed(documentId: string) {
  */
 export async function processDocument(documentId: string): Promise<"processed" | "skipped"> {
     const doc = await getPool().query(
-        "SELECT s3_key, mime, agent_id, title FROM documents WHERE id = $1",
+        "SELECT s3_key, mime, user_id, title FROM documents WHERE id = $1",
         [documentId]
     );
     if (doc.rows.length === 0) {
@@ -167,7 +166,7 @@ export async function processDocument(documentId: string): Promise<"processed" |
         return "skipped";
     }
 
-    const { s3_key, mime, agent_id, title } = doc.rows[0];
+    const { s3_key, mime, user_id, title } = doc.rows[0];
     console.log(`[${documentId}] processing "${title}" (${mime})`);
 
     const buffer = await downloadFromS3(s3_key);
@@ -184,9 +183,9 @@ export async function processDocument(documentId: string): Promise<"processed" |
         await client.query("DELETE FROM chunks WHERE document_id = $1", [documentId]);
         for (let i = 0; i < chunks.length; i++) {
             await client.query(
-                `INSERT INTO chunks (agent_id, document_id, content, embedding)
+                `INSERT INTO chunks (user_id, document_id, content, embedding)
                  VALUES ($1, $2, $3, $4)`,
-                [agent_id, documentId, chunks[i], `[${embeddings[i].join(",")}]`]
+                [user_id, documentId, chunks[i], toVectorLiteral(embeddings[i])]
             );
         }
         await client.query("UPDATE documents SET status = 'processed' WHERE id = $1", [documentId]);

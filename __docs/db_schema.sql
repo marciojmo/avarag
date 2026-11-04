@@ -1,3 +1,6 @@
+-- Schema for a fresh database. For an existing database created with the
+-- previous (agents-based) schema, run __docs/migrations/001_remove_agents.sql.
+
 -- Required extensions
 create extension if not exists "uuid-ossp";
 create extension if not exists vector;
@@ -12,25 +15,13 @@ create table if not exists public.users (
   modified_at timestamptz not null default now()
 );
 
-create table if not exists public.agents (
-  id uuid primary key default uuid_generate_v4(),
-  user_id uuid not null references public.users(id) on delete cascade,
-  name text not null,
-  description text,
-  model text default 'gpt-4o-mini',
-  script jsonb,
-  created_at timestamptz not null default now(),
-  modified_at timestamptz not null default now()
-);
-
 create table if not exists public.documents (
   id uuid primary key default uuid_generate_v4(),
-  agent_id uuid not null references public.agents(id) on delete cascade,
   user_id uuid not null references public.users(id) on delete cascade,
   title text,
   mime text,
   bytes bigint,
-  s3_key text not null,
+  s3_key text not null unique,
   status text not null check (status in ('pending','processed','failed')) default 'pending',
   created_at timestamptz not null default now(),
   modified_at timestamptz not null default now()
@@ -38,8 +29,8 @@ create table if not exists public.documents (
 
 create table if not exists public.chunks (
   id bigserial primary key,
-  agent_id uuid not null references public.agents(id) on delete cascade,
-  document_id uuid references public.documents(id) on delete cascade,
+  user_id uuid not null references public.users(id) on delete cascade,
+  document_id uuid not null references public.documents(id) on delete cascade,
   content text not null,
   embedding vector(1536) not null,
   created_at timestamptz not null default now(),
@@ -47,12 +38,11 @@ create table if not exists public.chunks (
 );
 
 -- ========== INDEXES ==========
-create index if not exists idx_agents_user on public.agents(user_id);
-create index if not exists idx_docs_agent on public.documents(agent_id);
-create index if not exists idx_docs_user on public.documents(user_id);
-create index if not exists idx_chunks_agent on public.chunks(agent_id);
-create index if not exists idx_chunks_ivfflat
-  on public.chunks using ivfflat (embedding vector_l2_ops) with (lists = 100);
+create index if not exists idx_docs_user on public.documents(user_id, created_at desc);
+create index if not exists idx_chunks_user on public.chunks(user_id);
+create index if not exists idx_chunks_document on public.chunks(document_id);
+create index if not exists idx_chunks_embedding
+  on public.chunks using hnsw (embedding vector_cosine_ops);
 
 -- ========== TRIGGER FOR modified_at ==========
 create or replace function public.set_modified_at()
@@ -65,15 +55,9 @@ begin
 end;
 $$;
 
--- attach trigger to each table
 drop trigger if exists trg_set_modified_at_users on public.users;
 create trigger trg_set_modified_at_users
 before update on public.users
-for each row execute function public.set_modified_at();
-
-drop trigger if exists trg_set_modified_at_agents on public.agents;
-create trigger trg_set_modified_at_agents
-before update on public.agents
 for each row execute function public.set_modified_at();
 
 drop trigger if exists trg_set_modified_at_documents on public.documents;

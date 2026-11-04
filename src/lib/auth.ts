@@ -1,7 +1,6 @@
-// lib/auth.ts
 import { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { createUser, getUserByEmail } from "@/lib/db";
+import { ensureUser, getUserByEmail } from "@/lib/db";
 
 export const authOptions: AuthOptions = {
     providers: [
@@ -13,54 +12,38 @@ export const authOptions: AuthOptions = {
     secret: process.env.NEXTAUTH_SECRET,
     pages: {
         signIn: "/login",
-        error: "/signup?error=user_not_found",
+        error: "/login",
     },
     callbacks: {
-        async signIn({ user, account, profile }) {
-            if (account?.provider === "google") {
-                try {
-                    // Check if user exists
-                    const existingUser = await getUserByEmail(user.email!);
-
-                    if (!existingUser) {
-                        // User doesn't exist - create new user and agent
-                        await createUser(user.email!, user.name || "User");
-                    }
-
-                    return true;
-                } catch (error) {
-                    console.error("Error during sign in:", error);
-                    return false;
-                }
+        async signIn({ user }) {
+            if (!user.email) return false;
+            try {
+                await ensureUser(user.email, user.name || "User");
+                return true;
+            } catch (error) {
+                console.error("Error during sign in:", error);
+                return false;
             }
-            return true;
         },
-        async session({ session, token }) {
+        async session({ session }) {
             if (session.user?.email) {
                 try {
                     const user = await getUserByEmail(session.user.email);
-                    if (user) {
-                        session.user.id = user.id;
-                    }
+                    if (user) session.user.id = user.id;
                 } catch (error) {
                     console.error("Error fetching user:", error);
                 }
             }
             return session;
         },
-        async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
+        async redirect({ url, baseUrl }) {
+            if (url.startsWith("/")) return `${baseUrl}${url}`;
             try {
-                const parsed = new URL(url, baseUrl);
-                if (parsed.pathname.startsWith("/api/auth/callback")) {
-                    return "/dashboard";
-                }
-                if (url.startsWith("/")) return `${baseUrl}${url}`;
-                if (parsed.origin === baseUrl) return url;
-                return baseUrl;
+                if (new URL(url).origin === baseUrl) return url;
             } catch {
-                return baseUrl;
+                // fall through
             }
+            return `${baseUrl}/dashboard`;
         },
     },
 };
-

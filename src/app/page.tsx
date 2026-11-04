@@ -104,7 +104,7 @@ export default function Home() {
             <div className="text-sm text-violet-400 mb-4">AI AGENTS</div>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">O que é um funcionário de IA?</h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              <strong>Funcionários de IA</strong> são como ter um "ChatGPT" da sua empresa.
+              <strong>Funcionários de IA</strong> são como ter um “ChatGPT” da sua empresa.
               Eles entendem e respondem aos clientes, executam tarefas e trabalham 24/7 para o seu negócio.
             </p>
           </div>
@@ -335,7 +335,7 @@ export default function Home() {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Por que agora é o melhor momento para você dominar os "Funcionários de Inteligência Artificial"
+            Por que agora é o melhor momento para você dominar os “Funcionários de Inteligência Artificial”
           </h2>
           <p className="text-xl text-gray-300 mb-10">
             A revolução da IA já começou. Empresas que adotam agentes de IA agora estão na frente da concorrência.
