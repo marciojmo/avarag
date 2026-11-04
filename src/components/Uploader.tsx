@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ACCEPT_ATTRIBUTE, resolveContentType } from "@/lib/uploads";
+import { useConfirm } from "./ConfirmDialog";
 
 type Doc = {
     id: string;
@@ -19,9 +20,9 @@ const STATUS_LABEL: Record<Doc["status"], string> = {
 };
 
 const STATUS_CLASS: Record<Doc["status"], string> = {
-    pending: "bg-yellow-500/15 text-yellow-300",
-    processed: "bg-green-500/15 text-green-300",
-    failed: "bg-red-500/15 text-red-300",
+    pending: "bg-secondary-container text-on-secondary-container",
+    processed: "bg-success-container text-on-success-container",
+    failed: "bg-error-container text-on-error-container",
 };
 
 function formatSize(bytes: number) {
@@ -41,6 +42,7 @@ export default function Uploader() {
     const [deleting, setDeleting] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { confirm, dialog } = useConfirm();
 
     const refresh = useCallback(async () => {
         try {
@@ -105,7 +107,13 @@ export default function Uploader() {
     }
 
     async function remove(doc: Doc) {
-        if (!confirm(`Delete "${doc.name}"?`)) return;
+        const ok = await confirm({
+            icon: "delete",
+            title: "Delete file?",
+            body: `"${doc.name}" will be removed and can no longer be used to answer questions.`,
+            confirmLabel: "Delete",
+        });
+        if (!ok) return;
         setDeleting(doc.id);
         try {
             const res = await fetch(`/api/uploads/${doc.id}`, { method: "DELETE" });
@@ -119,9 +127,9 @@ export default function Uploader() {
     }
 
     return (
-        <div className="flex flex-col gap-3 h-full">
+        <div className="flex flex-col h-full">
             <label
-                className={`flex items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-4 text-sm text-white/80 hover:bg-white/5 cursor-pointer ${uploading ? "opacity-60 pointer-events-none" : ""}`}
+                className={`md-state md-button md-button--filled w-full ${uploading ? "pointer-events-none" : ""} has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-secondary has-[:focus-visible]:outline-offset-2`}
             >
                 <input
                     ref={inputRef}
@@ -134,46 +142,69 @@ export default function Uploader() {
                         if (file) upload(file);
                     }}
                 />
-                {uploading ? `Uploading ${uploading}…` : "+ Upload file"}
+                <span className="md-icon" aria-hidden="true">
+                    upload_file
+                </span>
+                <span className="truncate">{uploading ? `Uploading ${uploading}…` : "Upload file"}</span>
             </label>
-            <p className="text-xs text-white/40 -mt-1">PDF, TXT, Markdown or MP3</p>
+            {uploading ? (
+                <div className="md-linear-progress mt-3" role="progressbar" aria-label="Uploading" />
+            ) : (
+                <p className="body-small text-on-surface-variant mt-2 px-4">PDF, TXT, Markdown or MP3</p>
+            )}
 
             {error && (
-                <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-md p-2">
-                    {error}
+                <p
+                    role="alert"
+                    className="mt-3 flex items-start gap-2 rounded-xl bg-error-container text-on-error-container body-small p-3"
+                >
+                    <span className="md-icon md-icon--sm" aria-hidden="true">
+                        error
+                    </span>
+                    <span className="min-w-0 break-words">{error}</span>
                 </p>
             )}
 
-            <ul className="flex-1 overflow-y-auto space-y-1">
+            <ul className="flex-1 overflow-y-auto mt-3 -mx-3">
                 {docs.length === 0 && (
-                    <li className="text-xs text-white/40 py-4 text-center">No files uploaded yet.</li>
+                    <li className="flex flex-col items-center text-center py-10 px-4 text-on-surface-variant">
+                        <span className="md-icon mb-2" aria-hidden="true">
+                            folder_open
+                        </span>
+                        <span className="body-medium">No files uploaded yet.</span>
+                    </li>
                 )}
                 {docs.map((doc) => (
-                    <li key={doc.id} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
+                    <li key={doc.id} className="group md-list-item rounded-2xl mx-1 transition-colors hover:bg-surface-container-highest">
+                        <span className="md-icon text-on-surface-variant" aria-hidden="true">
+                            description
+                        </span>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm text-white truncate" title={doc.name}>
+                            <p className="body-large text-on-surface truncate" title={doc.name}>
                                 {doc.name}
                             </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[11px] rounded-full px-1.5 ${STATUS_CLASS[doc.status]}`}>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className={`label-small rounded-full px-2 py-0.5 ${STATUS_CLASS[doc.status]}`}>
                                     {STATUS_LABEL[doc.status]}
                                 </span>
-                                <span className="text-[11px] text-white/40">{formatSize(doc.size)}</span>
+                                <span className="body-small text-on-surface-variant">{formatSize(doc.size)}</span>
                             </div>
                         </div>
                         <button
                             onClick={() => remove(doc)}
                             disabled={deleting === doc.id}
                             aria-label={`Delete ${doc.name}`}
-                            className="p-1.5 rounded text-white/40 hover:text-red-300 hover:bg-red-500/10 opacity-100 md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                            title="Delete"
+                            className="md-state md-icon-button md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <span className="md-icon" aria-hidden="true">
+                                delete
+                            </span>
                         </button>
                     </li>
                 ))}
             </ul>
+            {dialog}
         </div>
     );
 }

@@ -14,13 +14,20 @@ export default async function PublicChatPage({ params }: { params: Promise<{ own
 
     return (
         <main className="h-full flex flex-col">
-            <header className="px-4 pt-4 max-w-3xl w-full mx-auto">
-                <h1 className="text-lg font-semibold text-white">
-                    {ownerName ? `${ownerName}'s documents` : "Document chat"}
-                </h1>
-                <p className="text-sm text-white/60">
-                    Ask questions and get answers from the shared files.
-                </p>
+            <header className="px-4 pt-6 pb-2 max-w-3xl w-full mx-auto flex items-center gap-4">
+                <span className="flex items-center justify-center w-12 h-12 shrink-0 rounded-2xl bg-brand text-on-brand">
+                    <span className="md-icon" aria-hidden="true">
+                        description
+                    </span>
+                </span>
+                <div className="min-w-0">
+                    <h1 className="title-large text-on-surface truncate">
+                        {ownerName ? `${ownerName}'s documents` : "Document chat"}
+                    </h1>
+                    <p className="body-medium text-on-surface-variant">
+                        Ask questions and get answers from the shared files.
+                    </p>
+                </div>
             </header>
             <div className="flex-1 min-h-0">
                 <Chat

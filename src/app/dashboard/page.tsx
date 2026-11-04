@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Chat from "@/components/Chat";
 import ShareLink from "@/components/ShareLink";
 import Uploader from "@/components/Uploader";
@@ -8,36 +8,64 @@ import Uploader from "@/components/Uploader";
 export default function DashboardPage() {
     const [filesOpen, setFilesOpen] = useState(false);
 
+    // Escape closes the modal file sheet on compact screens.
+    useEffect(() => {
+        if (!filesOpen) return;
+        const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFilesOpen(false);
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [filesOpen]);
+
     return (
         <main className="flex h-full">
+            {/* Scrim for the modal sheet on compact screens */}
+            {filesOpen && (
+                <div
+                    className="md:hidden absolute inset-0 z-10 bg-scrim/32"
+                    onClick={() => setFilesOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+
+            {/* Standard side sheet on medium+, modal sheet on compact */}
             <aside
-                className={`${filesOpen ? "flex" : "hidden"} md:flex flex-col w-full md:w-72 shrink-0 border-r border-white/10 bg-[#181818] p-3 absolute md:static inset-0 z-20`}
+                aria-label="Your files"
+                className={`${filesOpen ? "flex" : "hidden"} md:flex flex-col w-[min(360px,calc(100%-56px))] md:w-80 shrink-0 bg-surface-container-low p-4 absolute md:static inset-y-0 left-0 z-20 rounded-r-[16px] md:rounded-none`}
             >
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-medium text-white/80">Your files</h2>
+                <div className="flex items-center justify-between h-10 mb-3 pl-1">
+                    <h2 className="title-medium text-on-surface-variant">Your files</h2>
                     <button
-                        className="md:hidden text-sm text-white/60 hover:text-white px-2 py-1"
+                        className="md-state md-icon-button md:hidden"
                         onClick={() => setFilesOpen(false)}
+                        aria-label="Close files"
                     >
-                        Close
+                        <span className="md-icon" aria-hidden="true">
+                            close
+                        </span>
                     </button>
                 </div>
                 <div className="flex-1 min-h-0">
                     <Uploader />
                 </div>
-                <div className="pt-3">
+                <div className="pt-4">
                     <ShareLink />
                 </div>
             </aside>
 
             <section className="flex-1 flex flex-col min-w-0">
-                <button
-                    className="md:hidden self-start m-3 mb-0 text-sm text-white/70 border border-white/15 rounded-lg px-3 py-1.5 hover:bg-white/5"
-                    onClick={() => setFilesOpen(true)}
-                >
-                    Files
-                </button>
-                <Chat />
+                <Chat
+                    toolbarStart={
+                        <button
+                            className="md-state md-button md-button--tonal md:hidden"
+                            onClick={() => setFilesOpen(true)}
+                        >
+                            <span className="md-icon" aria-hidden="true">
+                                folder_open
+                            </span>
+                            Files
+                        </button>
+                    }
+                />
             </section>
         </main>
     );

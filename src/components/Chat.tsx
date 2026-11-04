@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Message, { type ChatMessage } from "./Message";
 import ChatInput from "./ChatInput";
+import { useConfirm } from "./ConfirmDialog";
 
 function loadHistory(storageKey: string): ChatMessage[] {
     try {
@@ -29,6 +30,8 @@ type ChatProps = {
     storageKey?: string;
     emptyTitle?: string;
     emptyDescription?: string;
+    /** Extra controls shown at the start of the chat's toolbar row. */
+    toolbarStart?: React.ReactNode;
 };
 
 export default function Chat({
@@ -37,11 +40,13 @@ export default function Chat({
     storageKey = "chat_history",
     emptyTitle = "Ask about your documents",
     emptyDescription = "Upload PDF, TXT, Markdown or MP3 files and ask questions about their content.",
+    toolbarStart,
 }: ChatProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const { confirm, dialog } = useConfirm();
 
     useEffect(() => {
         setMessages(loadHistory(storageKey));
@@ -102,39 +107,52 @@ export default function Chat({
         }
     }
 
-    function handleClear() {
-        if (!confirm("Clear this conversation's history?")) return;
-        setMessages([]);
+    async function handleClear() {
+        const ok = await confirm({
+            icon: "add_comment",
+            title: "Start a new chat?",
+            body: "This clears the current conversation's history.",
+            confirmLabel: "New chat",
+        });
+        if (ok) setMessages([]);
     }
 
     const waitingFirstToken = loading && messages[messages.length - 1]?.text === "";
 
     return (
         <div className="flex flex-col h-full w-full">
-            {messages.length > 0 && (
-                <div className="flex justify-end px-4 py-2">
-                    <button
-                        onClick={handleClear}
-                        disabled={loading}
-                        className="text-xs text-white/50 hover:text-white/80 px-2 py-1 rounded hover:bg-white/5 disabled:opacity-50"
-                    >
-                        New chat
-                    </button>
+            {(toolbarStart || messages.length > 0) && (
+                <div className="flex items-center justify-between gap-2 max-w-3xl w-full mx-auto px-4 pt-3">
+                    <div>{toolbarStart}</div>
+                    {messages.length > 0 && (
+                        <button onClick={handleClear} disabled={loading} className="md-state md-button md-button--text">
+                            <span className="md-icon" aria-hidden="true">
+                                add_comment
+                            </span>
+                            New chat
+                        </button>
+                    )}
                 </div>
             )}
 
             <div className="flex-1 overflow-y-auto px-4" ref={scrollRef}>
                 <div className="max-w-3xl mx-auto flex flex-col">
                     {messages.length === 0 ? (
-                        <div className="text-center text-white/60 mt-24">
-                            <h2 className="text-2xl font-semibold text-white mb-2">{emptyTitle}</h2>
-                            <p className="text-sm">{emptyDescription}</p>
+                        <div className="text-center mt-20 sm:mt-28 px-4">
+                            <span className="mx-auto mb-6 flex items-center justify-center w-16 h-16 rounded-[20px] bg-brand text-on-brand">
+                                <span className="md-icon" aria-hidden="true">
+                                    chat
+                                </span>
+                            </span>
+                            <h2 className="headline-small text-on-surface mb-2">{emptyTitle}</h2>
+                            <p className="body-medium text-on-surface-variant max-w-md mx-auto">{emptyDescription}</p>
                         </div>
                     ) : (
                         messages.map((msg, i) =>
                             waitingFirstToken && i === messages.length - 1 ? (
-                                <div key={i} className="my-4 text-white/60 text-sm animate-pulse">
-                                    Thinking…
+                                <div key={i} className="my-4 w-full max-w-xs" role="status">
+                                    <p className="body-medium text-on-surface-variant mb-2">Thinking…</p>
+                                    <div className="md-linear-progress" aria-hidden="true" />
                                 </div>
                             ) : (
                                 <Message key={i} message={msg} />
@@ -147,6 +165,7 @@ export default function Chat({
             <div className="max-w-3xl w-full mx-auto">
                 <ChatInput onSend={handleSend} disabled={loading} />
             </div>
+            {dialog}
         </div>
     );
 }
