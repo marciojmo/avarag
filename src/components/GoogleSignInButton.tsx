@@ -4,7 +4,8 @@ import { signIn } from "next-auth/react";
 export default function GoogleSignInButton({ label = "Sign in with Google" }: { label?: string }) {
     return (
         <button
-            className="w-full h-12 rounded border border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa] active:bg-[#f1f3f4] transition-colors inline-flex items-center justify-center gap-3 cursor-pointer"
+            // Google brand button (pill shape): neutral light theme, dark theme in dark mode.
+            className="md-state w-full h-12 rounded-full border border-[#747775] bg-white text-[#1f1f1f] dark:border-[#8e918f] dark:bg-[#131314] dark:text-[#e3e3e3] inline-flex items-center justify-center gap-3"
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
         >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -13,7 +14,7 @@ export default function GoogleSignInButton({ label = "Sign in with Google" }: { 
                 <path d="M3.97545 10.7273c-.18-.54-.28227-1.1173-.28227-1.72728 0-.61.10227-1.18727.28227-1.72727V4.94091H.960938C.349219 6.14545 0 7.53545 0 9c0 1.4645.349219 2.8545.960938 4.0591l3.014512-2.3318z" fill="#FBBC05" />
                 <path d="M9 3.54545c1.3218 0 2.5118.45546 3.4473 1.3491l2.5855-2.58545C13.4632.847727 11.426 0 9 0 5.48128 0 2.44221 2.01682.960938 4.94091l3.014512 2.33182C4.68273 5.12636 6.66091 3.54545 9 3.54545z" fill="#EA4335" />
             </svg>
-            <span className="text-[14px] font-medium">{label}</span>
+            <span className="text-[14px] leading-5 font-medium">{label}</span>
         </button>
     );
 }

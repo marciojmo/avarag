@@ -26,28 +26,39 @@ export default function ShareLink() {
     }
 
     return (
-        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-            <p className="text-xs font-medium text-white/80">Public chat link</p>
-            <p className="text-[11px] text-white/50 mt-0.5 mb-2">
+        <div className="md-card md-card--outlined p-4 bg-transparent">
+            <div className="flex items-center gap-2 mb-1">
+                <span className="md-icon md-icon--sm text-primary" aria-hidden="true">
+                    link
+                </span>
+                <p className="title-small text-on-surface">Public chat link</p>
+            </div>
+            <p className="body-small text-on-surface-variant mb-3">
                 Anyone with the link can ask questions about your files.
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg bg-surface-container-highest pl-3 pr-1 py-1">
+                <span className="flex-1 min-w-0 truncate body-small text-on-surface-variant" title={url}>
+                    {url}
+                </span>
                 <a
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 min-w-0 truncate text-[11px] text-white/70 hover:text-white underline-offset-2 hover:underline"
-                    title={url}
+                    className="md-state md-icon-button w-8 h-8"
+                    aria-label="Open public chat in a new tab"
+                    title="Open"
                 >
-                    {url}
+                    <span className="md-icon md-icon--sm" aria-hidden="true">
+                        open_in_new
+                    </span>
                 </a>
-                <button
-                    onClick={copy}
-                    className="shrink-0 text-xs font-medium rounded-md bg-white/10 hover:bg-white/15 text-white px-2.5 py-1"
-                >
-                    {copied ? "Copied!" : "Copy"}
-                </button>
             </div>
+            <button onClick={copy} className="md-state md-button md-button--filled w-full mt-3" aria-live="polite">
+                <span className="md-icon" aria-hidden="true">
+                    {copied ? "check" : "content_copy"}
+                </span>
+                {copied ? "Copied" : "Copy link"}
+            </button>
         </div>
     );
 }

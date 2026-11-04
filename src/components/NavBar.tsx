@@ -2,57 +2,71 @@
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 
+// M3 small top app bar.
 export default function NavBar() {
     const { data: session, status } = useSession();
 
     return (
-        <nav className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 border-b border-white/10 bg-[#212121]">
-            <Link href="/" className="text-lg font-bold text-white hover:opacity-80">
-                AYDA
+        <header className="h-16 shrink-0 flex items-center justify-between gap-2 px-2 sm:px-4 bg-surface-container text-on-surface">
+            <Link
+                href="/"
+                className="md-state flex items-center gap-2 h-12 px-3 rounded-full title-large text-on-surface"
+                aria-label="AYDA home"
+            >
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand text-on-brand">
+                    <span className="md-icon md-icon--filled md-icon--sm" aria-hidden="true">
+                        forum
+                    </span>
+                </span>
+                <span className="font-medium tracking-tight">AYDA</span>
             </Link>
 
             {status === "loading" ? null : session?.user ? (
-                <div className="flex items-center gap-3 min-w-0">
-                    <Link
-                        href="/dashboard"
-                        className="text-sm text-white/80 hover:text-white px-2 py-1 rounded hover:bg-white/10"
-                    >
+                <nav className="flex items-center gap-1 min-w-0" aria-label="Account">
+                    <Link href="/dashboard" className="md-state md-button md-button--text hidden sm:inline-flex">
                         Dashboard
                     </Link>
-                    {session.user.image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={session.user.image}
-                            alt=""
-                            className="w-7 h-7 rounded-full object-cover border border-white/20"
-                        />
-                    )}
-                    <span className="hidden sm:block text-sm text-white/80 max-w-[180px] truncate">
-                        {session.user.name}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0 pl-2 pr-1">
+                        {session.user.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={session.user.image}
+                                alt=""
+                                className="w-8 h-8 rounded-full object-cover"
+                            />
+                        ) : (
+                            <span
+                                className="flex items-center justify-center w-8 h-8 rounded-full bg-tertiary-container text-on-tertiary-container label-large"
+                                aria-hidden="true"
+                            >
+                                {session.user.name?.[0]?.toUpperCase() ?? "?"}
+                            </span>
+                        )}
+                        <span className="hidden md:block body-medium text-on-surface-variant max-w-[180px] truncate">
+                            {session.user.name}
+                        </span>
+                    </div>
                     <button
-                        className="text-sm text-white/70 hover:text-white px-2 py-1 rounded hover:bg-white/10"
+                        className="md-state md-icon-button"
                         onClick={() => signOut({ callbackUrl: "/" })}
+                        aria-label="Sign out"
+                        title="Sign out"
                     >
-                        Sign out
+                        <span className="md-icon" aria-hidden="true">
+                            logout
+                        </span>
                     </button>
-                </div>
+                </nav>
             ) : (
-                <div className="flex items-center gap-2">
-                    <Link
-                        href="/signup"
-                        className="hidden sm:block text-sm font-medium text-white/80 hover:text-white px-3 py-1.5"
-                    >
+                <nav className="flex items-center gap-2" aria-label="Account">
+                    <Link href="/signup" className="md-state md-button md-button--text hidden sm:inline-flex">
                         Sign up
                     </Link>
-                    <Link
-                        href="/login"
-                        className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
-                    >
+                    <Link href="/login" className="md-state md-button md-button--filled">
                         Sign in
                     </Link>
-                </div>
+                </nav>
             )}
-        </nav>
+        </header>
     );
 }
