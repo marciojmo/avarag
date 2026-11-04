@@ -1,282 +1,151 @@
-// components/Chat.tsx - State Machine Based Chat
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Message from "./Message";
+import Message, { type ChatMessage } from "./Message";
 import ChatInput from "./ChatInput";
 
-type ChatMessage = { role: "user" | "bot"; text: string };
-
-// ========== LOCAL STORAGE HELPERS ==========
-const STORAGE_KEY_PREFIX = "chat_history_";
-const STATE_KEY_PREFIX = "chat_state_";
-
-function getStorageKey(agentId: string): string {
-    return `${STORAGE_KEY_PREFIX}${agentId}`;
-}
-
-function getStateKey(agentId: string): string {
-    return `${STATE_KEY_PREFIX}${agentId}`;
-}
-
-function loadChatHistory(agentId: string): ChatMessage[] {
-    if (typeof window === "undefined") return [];
-
+function loadHistory(storageKey: string): ChatMessage[] {
     try {
-        const stored = localStorage.getItem(getStorageKey(agentId));
-        if (!stored) return [];
-
-        const parsed = JSON.parse(stored);
+        const parsed = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
         return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-        console.error("Failed to load chat history:", error);
+    } catch {
         return [];
     }
 }
 
-function saveChatHistory(agentId: string, messages: ChatMessage[]): void {
-    if (typeof window === "undefined") return;
-
+function saveHistory(storageKey: string, messages: ChatMessage[]) {
     try {
-        localStorage.setItem(getStorageKey(agentId), JSON.stringify(messages));
-    } catch (error) {
-        console.error("Failed to save chat history:", error);
+        localStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch {
+        // Storage unavailable (private mode, quota): history just isn't kept.
     }
 }
 
-function loadCurrentState(agentId: string): number {
-    if (typeof window === "undefined") return 0;
+type ChatProps = {
+    /** API route that answers; it must stream text and may set X-Sources. */
+    endpoint?: string;
+    /** Extra fields sent with every question (e.g. the share-link owner). */
+    extraBody?: Record<string, string>;
+    /** localStorage key for this conversation's history. */
+    storageKey?: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+};
 
-    try {
-        const stored = localStorage.getItem(getStateKey(agentId));
-        if (!stored) return 0;
-
-        const stateIndex = parseInt(stored);
-        return isNaN(stateIndex) ? 0 : stateIndex;
-    } catch (error) {
-        console.error("Failed to load current state:", error);
-        return 0;
-    }
-}
-
-function saveCurrentState(agentId: string, stateIndex: number): void {
-    if (typeof window === "undefined") return;
-
-    try {
-        localStorage.setItem(getStateKey(agentId), stateIndex.toString());
-    } catch (error) {
-        console.error("Failed to save current state:", error);
-    }
-}
-
-function clearChatHistory(agentId: string): void {
-    if (typeof window === "undefined") return;
-
-    try {
-        localStorage.removeItem(getStorageKey(agentId));
-        localStorage.removeItem(getStateKey(agentId));
-    } catch (error) {
-        console.error("Failed to clear chat history:", error);
-    }
-}
-
-// ========== COMPONENT ==========
-export default function Chat({ agentId, isPublic = false }: { agentId?: string; isPublic?: boolean }) {
+export default function Chat({
+    endpoint = "/api/chat",
+    extraBody,
+    storageKey = "chat_history",
+    emptyTitle = "Pergunte sobre seus documentos",
+    emptyDescription = "Envie arquivos PDF, TXT, Markdown ou MP3 e faça perguntas sobre o conteúdo.",
+}: ChatProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [currentStateIndex, setCurrentStateIndex] = useState(0);
-    const [currentStateName, setCurrentStateName] = useState("Initial");
-    const [isConversationEnded, setIsConversationEnded] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Load chat history and state when agentId changes
     useEffect(() => {
-        if (agentId) {
-            const history = loadChatHistory(agentId);
-            const stateIndex = loadCurrentState(agentId);
-            setMessages(history);
-            setCurrentStateIndex(stateIndex);
-            setIsConversationEnded(false);
-        } else {
-            setMessages([]);
-            setCurrentStateIndex(0);
-            setIsConversationEnded(false);
-        }
-    }, [agentId]);
+        setMessages(loadHistory(storageKey));
+        setLoaded(true);
+    }, [storageKey]);
 
-    // Save chat history whenever messages change
+    // Persist once a reply has finished streaming.
     useEffect(() => {
-        if (agentId && messages.length > 0) {
-            saveChatHistory(agentId, messages);
-        }
-    }, [agentId, messages]);
+        if (loaded && !loading) saveHistory(storageKey, messages);
+    }, [loaded, loading, messages, storageKey]);
 
-    // Save current state whenever it changes
     useEffect(() => {
-        if (agentId) {
-            saveCurrentState(agentId, currentStateIndex);
-        }
-    }, [agentId, currentStateIndex]);
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }, [messages]);
+
+    function updateLast(update: (m: ChatMessage) => ChatMessage) {
+        setMessages((prev) => [...prev.slice(0, -1), update(prev[prev.length - 1])]);
+    }
 
     async function handleSend(text: string) {
-        if (!agentId) {
-            setMessages((prev) => [...prev, {
-                role: "bot",
-                text: "Error: No agent selected. Please select an agent first."
-            }]);
-            return;
-        }
+        const history = messages
+            .filter((m) => m.text && !m.error)
+            .map((m) => ({ role: m.role, content: m.text }));
 
-        if (isConversationEnded) {
-            setMessages((prev) => [...prev, {
-                role: "bot",
-                text: "This conversation has ended. Please clear the history to start a new conversation."
-            }]);
-            return;
-        }
-
-        // Add user message immediately
-        const userMessage = { role: "user" as const, text };
-        setMessages((prev) => [...prev, userMessage]);
-        setIsLoading(true);
+        setMessages((prev) => [...prev, { role: "user", text }, { role: "assistant", text: "" }]);
+        setLoading(true);
 
         try {
-            // Build conversation history for API
-            const conversationHistory = messages.map(msg => ({
-                role: msg.role === "user" ? "user" : "assistant",
-                content: msg.text
-            }));
-
-            // Use public endpoint if in public mode
-            const endpoint = isPublic ? "/api/public/chat" : "/api/chat";
-
-            const response = await fetch(endpoint, {
+            const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: text,
-                    agentId,
-                    currentStateIndex,
-                    conversationHistory
-                }),
+                body: JSON.stringify({ ...extraBody, message: text, history }),
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || "Failed to get response");
+            if (!res.ok || !res.body) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.error || `Erro ${res.status}`);
             }
 
-            const data = await response.json();
+            const sourcesHeader = res.headers.get("X-Sources");
+            const sources: string[] = sourcesHeader
+                ? JSON.parse(decodeURIComponent(sourcesHeader))
+                : [];
 
-            // Add bot response
-            setMessages((prev) => [...prev, {
-                role: "bot",
-                text: data.response
-            }]);
-
-            // Update state
-            if (data.nextStateIndex !== undefined) {
-                setCurrentStateIndex(data.nextStateIndex);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                updateLast((m) => ({ ...m, text: m.text + chunk }));
             }
-            if (data.stateName) {
-                setCurrentStateName(data.stateName);
-            }
-            if (data.isFinal) {
-                setIsConversationEnded(true);
-            }
-
-        } catch (error: any) {
-            console.error("Chat error:", error);
-            setMessages((prev) => [...prev, {
-                role: "bot",
-                text: `Sorry, I encountered an error: ${error.message}`
-            }]);
+            updateLast((m) => ({ ...m, sources }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            updateLast((m) => ({ ...m, text: `Não foi possível responder: ${message}`, error: true }));
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     }
 
-    function handleClearHistory() {
-        if (!agentId) return;
-
-        if (confirm("Are you sure you want to clear the chat history? This will reset the conversation.")) {
-            clearChatHistory(agentId);
-            setMessages([]);
-            setCurrentStateIndex(0);
-            setCurrentStateName("Initial");
-            setIsConversationEnded(false);
-        }
+    function handleClear() {
+        if (!confirm("Apagar o histórico desta conversa?")) return;
+        setMessages([]);
     }
 
-    const chatContainerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTo({
-                top: chatContainerRef.current.scrollHeight,
-                behavior: "smooth"
-            })
-        }
-    }, [messages]);
+    const waitingFirstToken = loading && messages[messages.length - 1]?.text === "";
 
     return (
         <div className="flex flex-col h-full w-full">
-            {/* Header with state info and clear button */}
             {messages.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-white/50">Current State:</span>
-                        <span className="text-xs font-medium text-blue-400">{currentStateName}</span>
-                        {isConversationEnded && (
-                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full">
-                                Completed
-                            </span>
-                        )}
-                    </div>
+                <div className="flex justify-end px-4 py-2">
                     <button
-                        onClick={handleClearHistory}
-                        disabled={isLoading}
-                        className="text-xs text-white/50 hover:text-white/80 transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Clear chat history"
+                        onClick={handleClear}
+                        disabled={loading}
+                        className="text-xs text-white/50 hover:text-white/80 px-2 py-1 rounded hover:bg-white/5 disabled:opacity-50"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Clear History
+                        Nova conversa
                     </button>
                 </div>
             )}
 
-            <div className="flex-1 p-2 w-full overflow-y-scroll" ref={chatContainerRef}>
-                <div className="max-w-xl mx-auto flex flex-col">
-                    {messages.length === 0 && (
-                        <div className="flex items-center justify-center h-full text-white/50 text-sm">
-                            Start a conversation by typing a message below
+            <div className="flex-1 overflow-y-auto px-4" ref={scrollRef}>
+                <div className="max-w-3xl mx-auto flex flex-col">
+                    {messages.length === 0 ? (
+                        <div className="text-center text-white/60 mt-24">
+                            <h2 className="text-2xl font-semibold text-white mb-2">{emptyTitle}</h2>
+                            <p className="text-sm">{emptyDescription}</p>
                         </div>
-                    )}
-                    {messages.map((msg, idx) => (
-                        <Message key={idx} role={msg.role} text={msg.text} />
-                    ))}
-                    {isLoading && (
-                        <div className="flex items-center gap-2 p-4 text-white/70 text-sm">
-                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Thinking...
-                        </div>
-                    )}
-                    {isConversationEnded && (
-                        <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
-                            <p className="text-sm text-green-400">Conversation completed</p>
-                            <p className="text-xs text-white/50 mt-1">Clear history to start a new conversation</p>
-                        </div>
+                    ) : (
+                        messages.map((msg, i) =>
+                            waitingFirstToken && i === messages.length - 1 ? (
+                                <div key={i} className="my-4 text-white/60 text-sm animate-pulse">
+                                    Pensando…
+                                </div>
+                            ) : (
+                                <Message key={i} message={msg} />
+                            )
+                        )
                     )}
                 </div>
             </div>
 
-            <div className="relative isolate z-10 w-full basis-auto content-fade single-line">
-                <div className="max-w-xl mx-auto flex flex-col">
-                    <ChatInput onSend={handleSend} disabled={isLoading || isConversationEnded} />
-                </div>
+            <div className="max-w-3xl w-full mx-auto">
+                <ChatInput onSend={handleSend} disabled={loading} />
             </div>
         </div>
     );

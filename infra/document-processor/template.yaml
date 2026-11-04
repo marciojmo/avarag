@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Document processor for avarag: SQS queue (+ dead-letter queue) consumed by a
+  Lambda that extracts text from uploaded files, embeds it and stores chunks.
+
+Parameters:
+  QueueName:
+    Type: String
+    Default: avarag-documents
+    Description: Name of the queue the app sends documents to (SQS_QUEUE_URL).
+  UploadsBucketName:
+    Type: String
+    Description: Existing S3 bucket with the uploads (S3_BUCKET_NAME).
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: Postgres connection string (Supabase pooler, port 6543).
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+  MaxReceiveCount:
+    Type: Number
+    Default: 3
+    Description: Attempts per message before it goes to the dead-letter queue.
+  MaxConcurrency:
+    Type: Number
+    Default: 5
+    MinValue: 2
+    Description: Max concurrent Lambda invocations (protects DB and OpenAI limits).
+
+Resources:
+  DocumentsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${QueueName}-dlq"
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  DocumentsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      # AWS recommends at least 6x the function timeout.
+      VisibilityTimeout: 1800
+      MessageRetentionPeriod: 345600 # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DocumentsDeadLetterQueue.Arn
+        maxReceiveCount: !Ref MaxReceiveCount
+
+  DocumentProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: avarag-document-processor
+      CodeUri: ../../.build/document-processor.zip
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref UploadsBucketName
+          DATABASE_URL: !Ref DatabaseUrl
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          MAX_RECEIVE_COUNT: !Ref MaxReceiveCount
+          NODE_OPTIONS: --enable-source-maps
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref UploadsBucketName
+      Events:
+        Documents:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt DocumentsQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+            ScalingConfig:
+              MaximumConcurrency: !Ref MaxConcurrency
+
+  DocumentProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${DocumentProcessorFunction}"
+      RetentionInDays: 30
+
+Outputs:
+  QueueUrl:
+    Description: Set as SQS_QUEUE_URL in Vercel and .env.local.
+    Value: !Ref DocumentsQueue
+  QueueArn:
+    Description: Grant sqs:SendMessage on this ARN to the app's IAM user.
+    Value: !GetAtt DocumentsQueue.Arn
+  DeadLetterQueueUrl:
+    Value: !Ref DocumentsDeadLetterQueue
+  FunctionName:
+    Value: !Ref DocumentProcessorFunction
