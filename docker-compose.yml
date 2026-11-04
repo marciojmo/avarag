@@ -1,0 +1,28 @@
+# Local development database (Postgres + pgvector).
+#
+#   docker compose up -d        # start
+#   npm run db:migrate          # apply db/migrations
+#   docker compose down -v      # stop and wipe the data
+#
+# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/avarag
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: avarag-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: avarag
+    ports:
+      - "5432:5432"
+    volumes:
+      - avarag-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d avarag"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  avarag-db-data:

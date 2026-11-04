@@ -27,12 +27,25 @@ Envie documentos e faça perguntas sobre eles num chat.
 | `src/app/api/chat`, `src/app/api/public/chat` | Respondem perguntas com base nos documentos (RAG em `src/lib/rag.ts`) |
 | `src/workers` | Processamento dos documentos: `lambda.ts` (produção) e `document-processor.ts` (local) |
 | `infra/document-processor` | Template SAM (fila, DLQ, Lambda) e guia de deploy |
-| `__docs/db_schema.sql` | Schema do banco |
+| `db/migrations` | Migrations SQL do banco, aplicadas com `npm run db:migrate` |
 
 ## Desenvolvimento
 
-1. Crie o `.env.local` com as variáveis abaixo e rode `__docs/db_schema.sql`
-   no Postgres (a extensão `vector` é obrigatória).
+1. Suba o banco local (Postgres 17 + pgvector, em Docker) e aplique as
+   migrations:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   ```bash
+   npm run db:migrate
+   ```
+
+   Use `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/avarag` no
+   `.env.local`. Para zerar o banco, rode `docker compose down -v`.
+
+   Crie o `.env.local` com as demais variáveis abaixo.
 2. Suba o app e, se quiser processar documentos localmente, o worker:
 
 ```bash
@@ -58,5 +71,13 @@ npm run worker
 
 - **App:** Vercel, com as mesmas variáveis de ambiente.
 - **Worker:** Lambda + SQS. Veja [`infra/document-processor/README.md`](infra/document-processor/README.md).
-- **Banco já existente com o schema antigo (com agentes):** rode
-  `__docs/migrations/001_remove_agents.sql`.
+- **Banco:** rode `npm run db:migrate` com o `DATABASE_URL` de produção
+  (Postgres com pgvector, como o Supabase). O comando aplica só as migrations
+  pendentes.
+
+## Migrations
+
+Cada arquivo em `db/migrations` (`NNNN_descricao.sql`) roda uma única vez,
+dentro de uma transação, e fica registrado na tabela `schema_migrations`.
+Para mudar o schema, crie um novo arquivo. Nunca edite uma migration já
+aplicada: o comando detecta a alteração e para com erro.
