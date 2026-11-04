@@ -1,4 +1,4 @@
-# AVA
+# AYDA — Ask Your Documents Anything
 
 Upload documents and ask questions about them in a chat.
 

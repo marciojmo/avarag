@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
     const contentType = resolveContentType(filename);
     if (!contentType) {
-        return Response.json({ error: "Tipo de arquivo não suportado" }, { status: 400 });
+        return Response.json({ error: "Unsupported file type" }, { status: 400 });
     }
 
     try {

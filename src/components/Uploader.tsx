@@ -13,9 +13,9 @@ type Doc = {
 const POLL_INTERVAL_MS = 4000;
 
 const STATUS_LABEL: Record<Doc["status"], string> = {
-    pending: "Processando",
-    processed: "Pronto",
-    failed: "Falhou",
+    pending: "Processing",
+    processed: "Ready",
+    failed: "Failed",
 };
 
 const STATUS_CLASS: Record<Doc["status"], string> = {
@@ -32,7 +32,7 @@ function formatSize(bytes: number) {
 
 async function errorMessage(res: Response) {
     const data = await res.json().catch(() => null);
-    return data?.error || `Erro ${res.status}`;
+    return data?.error || `Error ${res.status}`;
 }
 
 export default function Uploader() {
@@ -67,7 +67,7 @@ export default function Uploader() {
         setError(null);
         const contentType = resolveContentType(file.name);
         if (!contentType) {
-            setError("Envie apenas arquivos PDF, TXT, Markdown (.md) ou MP3.");
+            setError("Only PDF, TXT, Markdown (.md) or MP3 files are supported.");
             return;
         }
 
@@ -86,7 +86,7 @@ export default function Uploader() {
                 headers: { "Content-Type": contentType },
                 body: file,
             });
-            if (!put.ok) throw new Error(`Falha no envio para o S3 (${put.status})`);
+            if (!put.ok) throw new Error(`Upload to S3 failed (${put.status})`);
 
             const register = await fetch("/api/uploads", {
                 method: "POST",
@@ -105,7 +105,7 @@ export default function Uploader() {
     }
 
     async function remove(doc: Doc) {
-        if (!confirm(`Excluir "${doc.name}"?`)) return;
+        if (!confirm(`Delete "${doc.name}"?`)) return;
         setDeleting(doc.id);
         try {
             const res = await fetch(`/api/uploads/${doc.id}`, { method: "DELETE" });
@@ -134,9 +134,9 @@ export default function Uploader() {
                         if (file) upload(file);
                     }}
                 />
-                {uploading ? `Enviando ${uploading}…` : "+ Enviar arquivo"}
+                {uploading ? `Uploading ${uploading}…` : "+ Upload file"}
             </label>
-            <p className="text-xs text-white/40 -mt-1">PDF, TXT, Markdown ou MP3</p>
+            <p className="text-xs text-white/40 -mt-1">PDF, TXT, Markdown or MP3</p>
 
             {error && (
                 <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-md p-2">
@@ -146,7 +146,7 @@ export default function Uploader() {
 
             <ul className="flex-1 overflow-y-auto space-y-1">
                 {docs.length === 0 && (
-                    <li className="text-xs text-white/40 py-4 text-center">Nenhum arquivo enviado ainda.</li>
+                    <li className="text-xs text-white/40 py-4 text-center">No files uploaded yet.</li>
                 )}
                 {docs.map((doc) => (
                     <li key={doc.id} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/5">
@@ -164,7 +164,7 @@ export default function Uploader() {
                         <button
                             onClick={() => remove(doc)}
                             disabled={deleting === doc.id}
-                            aria-label={`Excluir ${doc.name}`}
+                            aria-label={`Delete ${doc.name}`}
                             className="p-1.5 rounded text-white/40 hover:text-red-300 hover:bg-red-500/10 opacity-100 md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                         >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

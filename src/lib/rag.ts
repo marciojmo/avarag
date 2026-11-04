@@ -23,13 +23,13 @@ export type HistoryMessage = { role: "user" | "assistant"; content: string };
 export type ChatInput = { message: string; history: HistoryMessage[] };
 type Chunk = { content: string; title: string | null; document_id: string };
 
-const SYSTEM_PROMPT = `Você é um assistente que responde perguntas com base nos documentos enviados pelo usuário.
+const SYSTEM_PROMPT = `You are an assistant that answers questions based on the documents uploaded by the user.
 
-Regras:
-- Use apenas as informações dos trechos de documentos fornecidos no contexto.
-- Se a resposta não estiver nos documentos, diga claramente que não encontrou essa informação nos arquivos enviados.
-- Responda no mesmo idioma da pergunta, de forma clara e objetiva.
-- Quando útil, mencione de qual documento veio a informação.`;
+Rules:
+- Use only the information in the document excerpts provided in the context.
+- If the answer is not in the documents, say clearly that you couldn't find that information in the uploaded files.
+- Answer in the same language as the question, clearly and concisely.
+- When useful, mention which document the information came from.`;
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,10 +70,10 @@ async function searchChunks(userId: string, question: string): Promise<Chunk[]> 
 
 function buildContext(chunks: Chunk[]): string {
     if (chunks.length === 0) {
-        return "Nenhum trecho relevante foi encontrado nos documentos.";
+        return "No relevant excerpts were found in the documents.";
     }
     return chunks
-        .map((c, i) => `[Trecho ${i + 1} — ${c.title ?? "documento"}]\n${c.content}`)
+        .map((c, i) => `[Excerpt ${i + 1} — ${c.title ?? "document"}]\n${c.content}`)
         .join("\n\n");
 }
 
@@ -86,7 +86,7 @@ export async function streamAnswer(userId: string, input: ChatInput): Promise<Re
         ...input.history,
         {
             role: "user",
-            content: `Contexto dos documentos:\n\n${buildContext(chunks)}\n\nPergunta: ${input.message}`,
+            content: `Document context:\n\n${buildContext(chunks)}\n\nQuestion: ${input.message}`,
         },
     ];
 
@@ -116,7 +116,7 @@ export async function streamAnswer(userId: string, input: ChatInput): Promise<Re
         },
     });
 
-    const sources = [...new Map(chunks.map((c) => [c.document_id, c.title ?? "documento"])).values()];
+    const sources = [...new Map(chunks.map((c) => [c.document_id, c.title ?? "document"])).values()];
 
     return new Response(stream, {
         headers: {

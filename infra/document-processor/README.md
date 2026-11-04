@@ -1,58 +1,58 @@
 # Document processor (Lambda + SQS)
 
-Fluxo: o app (Vercel) grava o arquivo no S3, cria o registro em `documents` e
-envia `{ documentId }` para a fila SQS. O Lambda `avarag-document-processor`
-consome a fila, extrai o texto (PDF, txt/md, mp3 via Whisper), gera os
-embeddings e grava em `chunks`, marcando o documento como `processed`.
+Flow: the app (Vercel) writes the file to S3, creates the row in `documents` and
+sends `{ documentId }` to the SQS queue. The `avarag-document-processor` Lambda
+consumes the queue, extracts the text (PDF, txt/md, mp3 via Whisper), generates
+the embeddings and writes them to `chunks`, marking the document as `processed`.
 
-- Código: [`src/workers/processor.ts`](../../src/workers/processor.ts) (pipeline) e
+- Code: [`src/workers/processor.ts`](../../src/workers/processor.ts) (pipeline) and
   [`src/workers/lambda.ts`](../../src/workers/lambda.ts) (handler).
-- Falhas transitórias (rede, OpenAI, banco) voltam para a fila e são tentadas até
-  3 vezes. Depois disso, o documento é marcado como `failed` e a mensagem vai
-  para a DLQ `avarag-documents-dlq`.
-- Falhas permanentes (tipo não suportado, arquivo sem texto) marcam o documento
-  como `failed` na hora, sem novas tentativas.
-- O reprocessamento é idempotente: os chunks antigos do documento são
-  substituídos dentro de uma transação.
+- Transient failures (network, OpenAI, database) go back to the queue and are
+  retried up to 3 times. After that, the document is marked as `failed` and the
+  message goes to the `avarag-documents-dlq` DLQ.
+- Permanent failures (unsupported type, file with no text) mark the document as
+  `failed` right away, with no retries.
+- Reprocessing is idempotent: the document's old chunks are replaced inside a
+  transaction.
 
-## Pré-requisitos
+## Prerequisites
 
 ```bash
 brew install awscli aws-sam-cli
 ```
 
 ```bash
-aws configure   # região sa-east-1, com um usuário que possa criar stacks
+aws configure   # region sa-east-1, with a user that can create stacks
 ```
 
 ## Deploy
 
-1. Gerar o pacote (`.build/document-processor.zip`, binários para Linux arm64):
+1. Build the package (`.build/document-processor.zip`, Linux arm64 binaries):
 
    ```bash
    npm run build:lambda
    ```
 
-2. Publicar a stack (fila, DLQ, Lambda, permissões e logs). Na primeira vez,
-   use `--guided` para salvar os parâmetros em `samconfig.toml`. **Não faça
-   commit desse arquivo**, porque ele guarda os segredos:
+2. Deploy the stack (queue, DLQ, Lambda, permissions and logs). The first time,
+   use `--guided` to save the parameters to `samconfig.toml`. **Don't commit
+   that file**, because it holds the secrets:
 
    ```bash
    sam deploy --guided --template-file infra/document-processor/template.yaml --stack-name avarag-document-processor --region sa-east-1 --resolve-s3 --capabilities CAPABILITY_IAM
    ```
 
-   Parâmetros: `UploadsBucketName` (o bucket de uploads), `DatabaseUrl`
-   (pooler do Supabase, porta 6543) e `OpenAIApiKey`.
+   Parameters: `UploadsBucketName` (the uploads bucket), `DatabaseUrl`
+   (Supabase pooler, port 6543) and `OpenAIApiKey`.
 
-3. Copiar o output `QueueUrl` para `SQS_QUEUE_URL` na Vercel (e no
+3. Copy the `QueueUrl` output to `SQS_QUEUE_URL` on Vercel (and in
    `.env.local`).
 
-Para atualizar o código depois, rode `npm run build:lambda` e
+To update the code later, run `npm run build:lambda` and
 `sam deploy --template-file infra/document-processor/template.yaml`.
 
-## Permissões do usuário IAM da Vercel
+## Vercel IAM user permissions
 
-O app só precisa enviar mensagens para a fila e mexer nos objetos do bucket:
+The app only needs to send messages to the queue and manage the bucket's objects:
 
 ```json
 {
@@ -68,14 +68,14 @@ O app só precisa enviar mensagens para a fila e mexer nos objetos do bucket:
 }
 ```
 
-## CORS do bucket
+## Bucket CORS
 
-O upload sai direto do browser para a URL pré-assinada:
+Uploads go straight from the browser to the presigned URL:
 
 ```json
 [
   {
-    "AllowedOrigins": ["https://<seu-dominio>", "http://localhost:3000"],
+    "AllowedOrigins": ["https://<your-domain>", "http://localhost:3000"],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["*"],
     "MaxAgeSeconds": 3000
@@ -83,11 +83,11 @@ O upload sai direto do browser para a URL pré-assinada:
 ]
 ```
 
-## Operação
+## Operations
 
 - Logs: `sam logs -n DocumentProcessorFunction --stack-name avarag-document-processor --tail`
-- Reprocessar o que caiu na DLQ: no console do SQS, abra a DLQ e use
-  *Start DLQ redrive* para devolver as mensagens à fila principal.
-- Desenvolvimento local: `npm run worker` roda o mesmo pipeline lendo a fila
-  com long polling. Não deixe o worker local ligado contra a mesma fila do
-  Lambda.
+- Reprocess what landed in the DLQ: in the SQS console, open the DLQ and use
+  *Start DLQ redrive* to send the messages back to the main queue.
+- Local development: `npm run worker` runs the same pipeline, reading the queue
+  with long polling. Don't keep the local worker running against the same queue
+  as the Lambda.

@@ -35,8 +35,8 @@ export default function Chat({
     endpoint = "/api/chat",
     extraBody,
     storageKey = "chat_history",
-    emptyTitle = "Pergunte sobre seus documentos",
-    emptyDescription = "Envie arquivos PDF, TXT, Markdown ou MP3 e faça perguntas sobre o conteúdo.",
+    emptyTitle = "Ask about your documents",
+    emptyDescription = "Upload PDF, TXT, Markdown or MP3 files and ask questions about their content.",
 }: ChatProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -77,7 +77,7 @@ export default function Chat({
             });
             if (!res.ok || !res.body) {
                 const data = await res.json().catch(() => null);
-                throw new Error(data?.error || `Erro ${res.status}`);
+                throw new Error(data?.error || `Error ${res.status}`);
             }
 
             const sourcesHeader = res.headers.get("X-Sources");
@@ -96,14 +96,14 @@ export default function Chat({
             updateLast((m) => ({ ...m, sources }));
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            updateLast((m) => ({ ...m, text: `Não foi possível responder: ${message}`, error: true }));
+            updateLast((m) => ({ ...m, text: `Couldn't answer: ${message}`, error: true }));
         } finally {
             setLoading(false);
         }
     }
 
     function handleClear() {
-        if (!confirm("Apagar o histórico desta conversa?")) return;
+        if (!confirm("Clear this conversation's history?")) return;
         setMessages([]);
     }
 
@@ -118,7 +118,7 @@ export default function Chat({
                         disabled={loading}
                         className="text-xs text-white/50 hover:text-white/80 px-2 py-1 rounded hover:bg-white/5 disabled:opacity-50"
                     >
-                        Nova conversa
+                        New chat
                     </button>
                 </div>
             )}
@@ -134,7 +134,7 @@ export default function Chat({
                         messages.map((msg, i) =>
                             waitingFirstToken && i === messages.length - 1 ? (
                                 <div key={i} className="my-4 text-white/60 text-sm animate-pulse">
-                                    Pensando…
+                                    Thinking…
                                 </div>
                             ) : (
                                 <Message key={i} message={msg} />
